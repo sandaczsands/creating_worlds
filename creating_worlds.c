@@ -2,31 +2,43 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
-
 /* wątki */
 #include <pthread.h>
-
 /* sem_init sem_destroy sem_post sem_wait */
 //#include <semaphore.h>
 /* flagi dla open */
 //#include <fcntl.h>
-
 /* boolean */
 #define TRUE 1
 #define FALSE 0
 
 /* typy wiadomości */
-#define FINISH 1
-#define APP_MSG 2
+//#define FINISH 1
+//#define APP_MSG 2
+#define REQ_A 1
+#define REQ_G 2
+#define ACK_A 3
+#define REQ_SLOT 4
+#define RELEASE_SLOT 5
+
+#define MAX_SLOTS 10
+#define MAX_ARTISTS 10
+#define MAX_ENGINEERS 10
 
 char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
-    int appdata;
-    int inne_pole; /* można zmienić nazwę na bardziej pasujące */
-} packet_t;
+    int type;
+    int sender_id; /* można zmienić nazwę na bardziej pasujące */
+    int clock;
+    int data;
+} message;
+
+int role;
+int pending_req[count_engineers];
+int priority[count_engineers];
 
 /* Kod funkcji wykonywanej przez wątek */
 void *startFunc(void *ptr)
@@ -73,8 +85,8 @@ int main(int argc, char **argv)
     MPI_Datatype MPI_PAKIET_T;
     MPI_Aint     offsets[2];
 
-    offsets[0] = offsetof(packet_t, appdata);
-    offsets[1] = offsetof(packet_t, inne_pole);
+    offsets[0] = offsetof(message, type);
+    offsets[1] = offsetof(message, sender_id);
 
     MPI_Type_create_struct(nitems, blocklengths, offsets, typy, &MPI_PAKIET_T);
     MPI_Type_commit(&MPI_PAKIET_T);
@@ -98,7 +110,7 @@ int main(int argc, char **argv)
 
     MPI_Status status;
     int data;     
-    packet_t pakiet;
+    message pakiet;
 
     if (rank==0) {
         /* Usuń kod, jest tylko po to, by przypomnieć działanie MPI_Send
