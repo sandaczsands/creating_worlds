@@ -25,20 +25,55 @@
 #define MAX_ARTISTS 10
 #define MAX_ENGINEERS 10
 
+/* inicjalizacja zegara Lamporta */
+int lamport_clock = 0;
+
 char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
     int type;
-    int sender_id; /* można zmienić nazwę na bardziej pasujące */
+    int sender_id;
     int clock;
-    int data;
 } message;
+
+typedef struct {
+    int type;
+    int sender_id;
+    int clock;
+    int g_pair;
+    int num_slots;
+} slot_request;
 
 int role;
 int pending_req[count_engineers];
 int priority[count_engineers];
+
+/* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
+void increment_lamport() {
+    pthread_mutex_lock(&mut);
+    lamport_clock++;
+    pthread_mutex_unlock(&mut);
+}
+
+/* Aktualizuje zegar Lamporta po otrzymaniu wiadomości */
+void update_lamport(int received_clock) {
+    pthread_mutex_lock(&mut);
+    if (lamport_clock < received_clock) {
+        lamport_clock = received_clock;
+    }
+    lamport_clock++;
+    pthread_mutex_unlock(&mut);
+}
+
+/* Zwraca aktualną wartość zegara */
+int get_lamport() {
+    pthread_mutex_lock(&mut);
+    int val = lamport_clock;
+    pthread_mutex_unlock(&mut);
+    return val;
+}
 
 /* Kod funkcji wykonywanej przez wątek */
 void *startFunc(void *ptr)
