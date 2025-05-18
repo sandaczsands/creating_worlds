@@ -75,6 +75,34 @@ int get_lamport() {
     return val;
 }
 
+void create_message_types() {
+    const int nitems = 3;
+    int blocklengths[3] = {1, 1, 1};
+    MPI_Datatype typy[3] = {MPI_INT, MPI_INT, MPI_INT};
+    MPI_Aint offsets[3];
+
+    offsets[0] = offsetof(message, type);
+    offsets[1] = offsetof(message, sender_id);
+    offsets[2] = offsetof(message, clock);
+
+    MPI_Type_create_struct(nitems, blocklengths, offsets, typy, &MPI_MESSAGE_T);
+    MPI_Type_commit(&MPI_MESSAGE_T);
+
+    const int nitems2 = 5;
+    int blocklengths2[5] = {1, 1, 1};
+    MPI_Datatype typy2[5] = {MPI_INT, MPI_INT, MPI_INT};
+    MPI_Aint offsets2[5];
+
+    offsets[0] = offsetof(slot_request, type);
+    offsets[1] = offsetof(slot_request, sender_id);
+    offsets[2] = offsetof(slot_request, clock);
+    offsets[3] = offsetof(slot_request, g_pair);
+    offsets[4] = offsetof(slot_request, num_slots);
+
+    MPI_Type_create_struct(nitems2, blocklengths2, offsets2, typy2, &MPI_SLOT_REQUEST_T);
+    MPI_Type_commit(&MPI_SLOT_REQUEST_T);
+}
+
 /* Kod funkcji wykonywanej przez wątek */
 void *startFunc(void *ptr)
 {
@@ -109,23 +137,7 @@ int main(int argc, char **argv)
         default: printf("Nikt nic nie wie\n");
     }
 
-    /* Stworzenie typu */
-    /* Poniższe (aż do MPI_Type_commit) potrzebne tylko, jeżeli
-       brzydzimy się czymś w rodzaju MPI_Send(&typ, sizeof(pakiet_t), MPI_BYTE....
-    */
-    /* sklejone z stackoverflow */
-    const int nitems=2;
-    int       blocklengths[2] = {1,1};
-    MPI_Datatype typy[2] = {MPI_INT, MPI_INT};
-    MPI_Datatype MPI_PAKIET_T;
-    MPI_Aint     offsets[2];
-
-    offsets[0] = offsetof(message, type);
-    offsets[1] = offsetof(message, sender_id);
-
-    MPI_Type_create_struct(nitems, blocklengths, offsets, typy, &MPI_PAKIET_T);
-    MPI_Type_commit(&MPI_PAKIET_T);
-
+    create_message_types();
 
     pthread_t threadA;
     /* Tworzenie wątku */
