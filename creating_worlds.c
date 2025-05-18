@@ -89,8 +89,8 @@ void create_message_types() {
     MPI_Type_commit(&MPI_MESSAGE_T);
 
     const int nitems2 = 5;
-    int blocklengths2[5] = {1, 1, 1};
-    MPI_Datatype typy2[5] = {MPI_INT, MPI_INT, MPI_INT};
+    int blocklengths2[5] = {1, 1, 1, 1, 1};
+    MPI_Datatype typy2[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
     MPI_Aint offsets2[5];
 
     offsets[0] = offsetof(slot_request, type);
