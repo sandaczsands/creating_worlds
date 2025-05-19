@@ -52,7 +52,6 @@ typedef struct {
 } message;
 
 typedef struct {
-    int type;
     int sender_id;
     int clock;
     int g_pair;
@@ -115,16 +114,15 @@ void create_message_types() {
     MPI_Type_create_struct(nitems, blocklengths, offsets, typy, &MPI_MESSAGE_T);
     MPI_Type_commit(&MPI_MESSAGE_T);
 
-    const int nitems2 = 5;
-    int blocklengths2[5] = {1, 1, 1, 1, 1};
-    MPI_Datatype typy2[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
-    MPI_Aint offsets2[5];
+    const int nitems2 = 4;
+    int blocklengths2[4] = {1, 1, 1, 1};
+    MPI_Datatype typy2[4] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT};
+    MPI_Aint offsets2[4];
 
-    offsets2[0] = offsetof(slot_request, type);
-    offsets2[1] = offsetof(slot_request, sender_id);
-    offsets2[2] = offsetof(slot_request, clock);
-    offsets2[3] = offsetof(slot_request, g_pair);
-    offsets2[4] = offsetof(slot_request, num_slots);
+    offsets2[0] = offsetof(slot_request, sender_id);
+    offsets2[1] = offsetof(slot_request, clock);
+    offsets2[2] = offsetof(slot_request, g_pair);
+    offsets2[3] = offsetof(slot_request, num_slots);
 
     MPI_Type_create_struct(nitems2, blocklengths2, offsets2, typy2, &MPI_SLOT_REQUEST_T);
     MPI_Type_commit(&MPI_SLOT_REQUEST_T);
@@ -178,47 +176,40 @@ void send_message_to_process(message *msg, int dest, int tag) {
     lamport_send(msg, 1, MPI_MESSAGE_T, dest, tag, MPI_COMM_WORLD);
 }
 
-void send_message_to_all(void *msg, int count, MPI_Datatype datatype, int tag, int self_rank, int comm_size) {
-    increment_lamport();
-    for (int dest = 0; dest < comm_size; dest++) {
-        if (dest != self_rank) {
-            lamport_send(msg, count, datatype, dest, tag, MPI_COMM_WORLD);
-        }
-    }
-}
-
-
 void *comm_thread_func(void *ptr) {
-    message message;
     MPI_Status status;
 
     while (!end) {
-        MPI_Recv(&message, 1, MPI_MESSAGE_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-        update_lamport(message.clock);
+        MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
-               rank, get_lamport(), message.sender_id, message.type);
+        int count;
+        MPI_Get_count(&status, MPI_MESSAGE_T, &count);
+        if (count == 1) {
+            message msg;
+            MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
+            update_lamport(msg.clock);
 
-        switch (message.type) {
-            case REQ_A: {
-                if (role == ROLE_A) {
-                    int sender = message.sender_id;
-                    // Store the pending request
-                    pending_req[sender - MAX_ARTISTS] = TRUE;
+            printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
+                   rank, get_lamport(), msg.sender_id, msg.type);
+
+            switch (msg.type) {
+                case REQ_A: {
+                    if (role == ROLE_A) {
+                        int sender = msg.sender_id;
+                        pending_req[sender - MAX_ARTISTS] = TRUE;
+                    }
+                    break;
                 }
-                break;
-            }
-            case REQ_G:
-                if (role == ROLE_G) {
-                    int sender = message.sender_id;
-                    request_from_a = sender;
-                }
-                break;
-            case ACK_A:
-                if (role == ROLE_A) {
-                        int sender = message.sender_id;
+                case REQ_G:
+                    if (role == ROLE_G) {
+                        request_from_a = msg.sender_id;
+                    }
+                    break;
+                case ACK_A:
+                    if (role == ROLE_A) {
+                        int sender = msg.sender_id;
                         pending_req[sender - MAX_ARTISTS] = FALSE;
-                        for (int g = 0; g < MAX_ENGINEERS; g++){
+                        for (int g = 0; g < MAX_ENGINEERS; g++) {
                             if (g == sender - MAX_ARTISTS) {
                                 priority[g] = 0;
                             } else {
@@ -227,19 +218,30 @@ void *comm_thread_func(void *ptr) {
                         }
                         paired = sender;
                     }
-                break;
-            case REQ_SLOT:
-                // handle request 
-                break;
-            case RELEASE_SLOT:
-                break;
-            default:
-                printf("[Rank %d] Unknown message type: %d\n", rank, message.type);
-                break;
+                    break;
+                case RELEASE_SLOT:
+                    // Handle release
+                    break;
+                default:
+                    printf("[Rank %d] Unknown message type: %d\n", rank, msg.type);
+                    break;
+            }
+        } else {
+            slot_request req;
+            MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
+            update_lamport(req.clock);
+
+            printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n",
+                   rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
+
+            if (role == ROLE_A) {
+                pending_req[req.g_pair] = FALSE;
+            }
         }
     }
     return NULL;
 }
+
 
 
 int main(int argc, char **argv) {
