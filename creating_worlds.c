@@ -222,8 +222,8 @@ void *comm_thread_func(void *ptr) {
 
 int main(int argc, char **argv) {
     printf("poczatek\n");
-    int provided;
 
+    int provided;
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE, &provided);
 
     printf("THREAD SUPPORT: %d\n", provided);
@@ -247,27 +247,42 @@ int main(int argc, char **argv) {
         default: printf("Nikt nic nie wie\n");
     }
 
+    int rank, size;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    // Ustal rolę
+    if (rank < MAX_ARTISTS) {
+        role = ROLE_A;
+    } else {
+        role = ROLE_G;
+    }
+
     create_message_types();
+    create_role_comms(MPI_COMM_WORLD, rank, size);
 
     pthread_t comm_thread;
     pthread_create(&comm_thread, NULL, comm_thread_func, NULL);
 
-    // Simulate sending messages
-    // if (rank == 0) {
-    //     for (int i = 1; i < size; i++) {
-    //         message msg = { .type = FINISH, .sender_id = rank };
-    //         increment_lamport();
-    //         msg.clock = get_lamport();
-    //         MPI_Send(&msg, 1, MPI_MESSAGE_T, i, FINISH, MPI_COMM_WORLD);
-    //     }
-    //     end = TRUE; // terminate self
-    // }
+    // Start komunikacji i logiki roli
+    pthread_t comm_thread, role_thread;
+    pthread_create(&comm_thread, NULL, comm_thread_func, NULL);
 
-    // Wait for the communication thread to finish
+    if (role == ROLE_A) {
+        pthread_create(&role_thread, NULL, artist_thread_func, NULL);
+    } else {
+        pthread_create(&role_thread, NULL, engineer_thread_func, NULL);
+    }
+
+    // Czekaj na zakończenie
+    pthread_join(role_thread, NULL);
     pthread_join(comm_thread, NULL);
 
+    // Sprzątanie
     MPI_Type_free(&MPI_MESSAGE_T);
+    MPI_Type_free(&MPI_SLOT_REQUEST_T);
     pthread_mutex_destroy(&mut);
     MPI_Finalize();
+
     return 0;
 }
