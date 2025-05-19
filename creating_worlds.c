@@ -185,25 +185,42 @@ void send_message_to_all(void *msg, int count, MPI_Datatype datatype, int tag, i
     }
 }
 
+void *comm_thread_func(void *ptr) {
+    message message;
+    MPI_Status status;
 
-void *startFunc(void *ptr)
-{
-    int thread_role = *((int *)ptr);
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    while (!end) {
+        MPI_Recv(&message, 1, MPI_MESSAGE_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
+        update_lamport(message.clock);
 
-    if (thread_role == ROLE_A) { // what artist does
-        printf("Thread A (Artist) started on rank %d\n", rank);
+        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
+               rank, get_lamport(), message.sender_id, message.type);
+
+        switch (message.type) {
+            case REQ_A:
+                // handle request A
+                break;
+            case REQ_G:
+                // handle request 
+                break;
+            case ACK_A:
+                // handle ack A
+                break;
+            case REQ_SLOT:
+                // handle request 
+                break;
+            case RELEASE_SLOT:
+                break;
+            default:
+                printf("[Rank %d] Unknown message type: %d\n", rank, message.type);
+                break;
+        }
     }
-    else if (thread_role == ROLE_G) { //what engineer does
-        printf("Thread G (Engineer) started on rank %d\n", rank);
-    }
-
-    pthread_exit(NULL);
+    return NULL;
 }
 
-int main(int argc, char **argv)
-{
+
+int main(int argc, char **argv) {
     printf("poczatek\n");
     int provided;
 
@@ -232,64 +249,25 @@ int main(int argc, char **argv)
 
     create_message_types();
 
-    pthread_t threadA, threadG;
-    int roleA = ROLE_A;
-    int roleG = ROLE_G;
+    pthread_t comm_thread;
+    pthread_create(&comm_thread, NULL, comm_thread_func, NULL);
 
-    pthread_create(&threadA, NULL, startFunc, &roleA);
-    pthread_create(&threadG, NULL, startFunc, &roleG);
+    // Simulate sending messages
+    // if (rank == 0) {
+    //     for (int i = 1; i < size; i++) {
+    //         message msg = { .type = FINISH, .sender_id = rank };
+    //         increment_lamport();
+    //         msg.clock = get_lamport();
+    //         MPI_Send(&msg, 1, MPI_MESSAGE_T, i, FINISH, MPI_COMM_WORLD);
+    //     }
+    //     end = TRUE; // terminate self
+    // }
 
-    /* Zamykanie muteksa */
-  //pthread_mutex_lock(&mut);
-    /* Otwieranie muteksa */
-  //pthread_mutex_unlock(&mut);
+    // Wait for the communication thread to finish
+    pthread_join(comm_thread, NULL);
 
-
-    int size,   ;
-    char end = FALSE;
-
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-
-    MPI_Status status;
-    int data;     
-    message pakiet;
-
-    if   {  
-        /* Usuń kod, jest tylko po to, by przypomnieć działanie MPI_Send
-           oraz, by program przykładowy się zakończył */
-        int i;
-        for (i=1;i<size;i++) {
-	    MPI_Send(&pakiet, 1, MPI_PAKIET_T, i, FINISH, MPI_COMM_WORLD);
-            printf("Poszło do %d\n", i);
-        }
-        end = TRUE;
-    } 
-
-    srand(rank);
-
-    /* Obrazuje pętlę odbierającą pakiety o różnych typach */
-    while ( !end ) {
-    MPI_Recv( &pakiet, 1, MPI_PAKIET_T, MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
-
-       switch (status.MPI_TAG) {
-	    case FINISH: end = TRUE; break;
-            case APP_MSG: 
-                passive = FALSE;
-                break;
-            /* więcej case */
-            default: 
-                break;
-       }
-
-    }
-
-    pthread_mutex_destroy( &mut);
-
-    /* Czekamy, aż wątek potomny się zakończy */
-    pthread_join(threadA, NULL);
-    pthread_join(threadG, NULL);
-
-    MPI_Type_free(&MPI_PAKIET_T);
+    MPI_Type_free(&MPI_MESSAGE_T);
+    pthread_mutex_destroy(&mut);
     MPI_Finalize();
+    return 0;
 }
