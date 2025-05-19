@@ -25,12 +25,18 @@
 #define MAX_ARTISTS 10
 #define MAX_ENGINEERS 10
 
+#define ROLE_A 0 
+#define ROLE_G 1 
+
 /* inicjalizacja zegara Lamporta */
 int lamport_clock = 0;
 
 char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
+
+MPI_Datatype MPI_MESSAGE_T;
+MPI_Datatype MPI_SLOT_REQUEST_T;
 
 typedef struct {
     int type;
@@ -93,20 +99,31 @@ void create_message_types() {
     MPI_Datatype typy2[5] = {MPI_INT, MPI_INT, MPI_INT, MPI_INT, MPI_INT};
     MPI_Aint offsets2[5];
 
-    offsets[0] = offsetof(slot_request, type);
-    offsets[1] = offsetof(slot_request, sender_id);
-    offsets[2] = offsetof(slot_request, clock);
-    offsets[3] = offsetof(slot_request, g_pair);
-    offsets[4] = offsetof(slot_request, num_slots);
+    offsets2[0] = offsetof(slot_request, type);
+    offsets2[1] = offsetof(slot_request, sender_id);
+    offsets2[2] = offsetof(slot_request, clock);
+    offsets2[3] = offsetof(slot_request, g_pair);
+    offsets2[4] = offsetof(slot_request, num_slots);
 
     MPI_Type_create_struct(nitems2, blocklengths2, offsets2, typy2, &MPI_SLOT_REQUEST_T);
     MPI_Type_commit(&MPI_SLOT_REQUEST_T);
 }
 
-/* Kod funkcji wykonywanej przez wątek */
+
 void *startFunc(void *ptr)
 {
-    /* wątek się kończy, gdy funkcja się kończy */
+    int thread_role = *((int *)ptr);
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    if (thread_role == ROLE_A) { // what artist does
+        printf("Thread A (Artist) started on rank %d\n", rank);
+    }
+    else if (thread_role == ROLE_G) { //what engineer does
+        printf("Thread G (Engineer) started on rank %d\n", rank);
+    }
+
+    pthread_exit(NULL);
 }
 
 int main(int argc, char **argv)
@@ -139,9 +156,12 @@ int main(int argc, char **argv)
 
     create_message_types();
 
-    pthread_t threadA;
-    /* Tworzenie wątku */
-    pthread_create( &threadA, NULL, startFunc, 0);
+    pthread_t threadA, threadG;
+    int roleA = ROLE_A;
+    int roleG = ROLE_G;
+
+    pthread_create(&threadA, NULL, startFunc, &roleA);
+    pthread_create(&threadG, NULL, startFunc, &roleG);
 
     /* Zamykanie muteksa */
   //pthread_mutex_lock(&mut);
@@ -191,7 +211,9 @@ int main(int argc, char **argv)
     pthread_mutex_destroy( &mut);
 
     /* Czekamy, aż wątek potomny się zakończy */
-    pthread_join(threadA,NULL);
+    pthread_join(threadA, NULL);
+    pthread_join(threadG, NULL);
+
     MPI_Type_free(&MPI_PAKIET_T);
     MPI_Finalize();
 }
