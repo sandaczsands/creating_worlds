@@ -88,6 +88,18 @@ int get_lamport() {
     return val;
 }
 
+/* MPI_Send wraper obługujący zegar lamporta */
+int lamport_send(void *buf, int count, MPI_Datatype datatype, int dest, int tag, MPI_Comm comm) {
+    // Ustaw zegar w strukturze wiadomości — zależnie od typu
+    if (datatype == MPI_MESSAGE_T) {
+        ((message*)buf)->clock = get_lamport();
+    } else if (datatype == MPI_SLOT_REQUEST_T) {
+        ((slot_request*)buf)->clock = get_lamport();
+    }
+
+    return MPI_Send(buf, count, datatype, dest, tag, comm);
+}
+
 void create_message_types() {
     const int nitems = 3;
     int blocklengths[3] = {1, 1, 1};
@@ -142,24 +154,35 @@ void create_role_comms(MPI_Comm world_comm, int rank, int size) {
 }
 
 void send_message_to_artists(message *msg, int tag) {
-    int i;
-    for (i = 0; i < MAX_ARTISTS; i++) {
+    increment_lamport();
+    for (int i = 0; i < MAX_ARTISTS; i++) {
         if (i != msg->sender_id) { // nie wysyłaj do siebie
-            MPI_Send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+            lamport_send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
         }
     }
 }
 
 void send_message_to_engineers(message *msg, int tag) {
+    increment_lamport();
     for (int i = MAX_ARTISTS; i < MAX_ARTISTS + MAX_ENGINEERS; i++) {
         if (i != msg->sender_id) {
-            MPI_Send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+            lamport_send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
         }
     }
 }
 
 void send_message_to_process(message *msg, int dest, int tag) {
-    MPI_Send(msg, 1, MPI_MESSAGE_T, dest, tag, MPI_COMM_WORLD);
+    increment_lamport();
+    lamport_send(msg, 1, MPI_MESSAGE_T, dest, tag, MPI_COMM_WORLD);
+}
+
+void send_message_to_all(void *msg, int count, MPI_Datatype datatype, int tag, int self_rank, int comm_size) {
+    increment_lamport();
+    for (int dest = 0; dest < comm_size; dest++) {
+        if (dest != self_rank) {
+            lamport_send(msg, count, datatype, dest, tag, MPI_COMM_WORLD);
+        }
+    }
 }
 
 
