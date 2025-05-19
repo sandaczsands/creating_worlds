@@ -18,7 +18,7 @@
 #define REQ_A 1
 #define REQ_G 2
 #define ACK_A 3
-#define REQ_SLOT 4
+#define ACK_REQ_SLOT 4
 #define RELEASE_SLOT 5
 
 #define MAX_SLOTS 10
@@ -59,10 +59,13 @@ typedef struct {
 } slot_request;
 
 int role;
+int paired;
 int pending_req[MAX_ENGINEERS];
 int request_from_a;
 int priority[MAX_ENGINEERS];
-int paired;
+slot_request slot_requests[MAX_ARTISTS];
+int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od danego artysty
+
 
 /* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
 void increment_lamport() {
@@ -192,10 +195,18 @@ void *comm_thread_func(void *ptr) {
             printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n",
                    rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
 
-            if (role == ROLE_A) {
-                pending_req[req.g_pair] = FALSE;
-            }
+            pending_req[req.g_pair] = FALSE;
 
+            if (role == ROLE_A) {
+                int idx = req.sender_id;
+                if (idx >= 0 && idx < MAX_ARTISTS) {
+                    slot_requests[idx] = req;
+                    has_slot_request[idx] = TRUE;
+                } else {
+                    printf("[Rank %d] Invalid sender_id in SLOT_REQUEST: %d\n", rank, req.sender_id);
+                }
+            }
+            
             continue;
         }
 
@@ -234,7 +245,14 @@ void *comm_thread_func(void *ptr) {
                 }
                 break;
             case RELEASE_SLOT:
-                // Handle release
+                if (sender >= 0 && sender < MAX_ARTISTS) {
+                    has_slot_request[sender] = FALSE; // Clear request tracking
+
+                    printf("[Rank %d | Clock %d] RELEASE_SLOT received from %d. Slot now free.\n",
+                        rank, get_lamport(), sender);
+                } else {
+                    printf("[Rank %d] Invalid sender in RELEASE_SLOT: %d\n", rank, sender);
+                }
                 break;
             default:
                 printf("[Rank %d] Unknown message type: %d\n", rank, msg.type);
@@ -289,6 +307,10 @@ int main(int argc, char **argv) {
 
     pthread_t comm_thread;
     pthread_create(&comm_thread, NULL, comm_thread_func, NULL);
+
+    for (int i = 0; i < MAX_ARTISTS; i++) {
+        has_slot_request[i] = FALSE;
+    }
 
     // Start komunikacji i logiki roli
     pthread_t comm_thread, role_thread;
