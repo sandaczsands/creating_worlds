@@ -60,8 +60,10 @@ typedef struct {
 } slot_request;
 
 int role;
-int pending_req[count_engineers];
-int priority[count_engineers];
+int pending_req[MAX_ENGINEERS];
+int request_from_a;
+int priority[MAX_ENGINEERS];
+int paired;
 
 /* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
 void increment_lamport() {
@@ -185,6 +187,7 @@ void send_message_to_all(void *msg, int count, MPI_Datatype datatype, int tag, i
     }
 }
 
+
 void *comm_thread_func(void *ptr) {
     message message;
     MPI_Status status;
@@ -197,14 +200,33 @@ void *comm_thread_func(void *ptr) {
                rank, get_lamport(), message.sender_id, message.type);
 
         switch (message.type) {
-            case REQ_A:
-                // handle request A
+            case REQ_A: {
+                if (role == ROLE_A) {
+                    int sender = message.sender_id;
+                    // Store the pending request
+                    pending_req[sender - MAX_ARTISTS] = TRUE;
+                }
                 break;
+            }
             case REQ_G:
-                // handle request 
+                if (role == ROLE_G) {
+                    int sender = message.sender_id;
+                    request_from_a = sender;
+                }
                 break;
             case ACK_A:
-                // handle ack A
+                if (role == ROLE_A) {
+                        int sender = message.sender_id;
+                        pending_req[sender - MAX_ARTISTS] = FALSE;
+                        for (int g = 0; g < MAX_ENGINEERS; g++){
+                            if (g == sender - MAX_ARTISTS) {
+                                priority[g] = 0;
+                            } else {
+                                priority[g] += 1;
+                            }
+                        }
+                        paired = sender;
+                    }
                 break;
             case REQ_SLOT:
                 // handle request 
