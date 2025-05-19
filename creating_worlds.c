@@ -184,49 +184,7 @@ void *comm_thread_func(void *ptr) {
 
         int count;
         MPI_Get_count(&status, MPI_MESSAGE_T, &count);
-        if (count == 1) {
-            message msg;
-            MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
-            update_lamport(msg.clock);
-
-            printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
-                   rank, get_lamport(), msg.sender_id, msg.type);
-
-            switch (msg.type) {
-                case REQ_A: {
-                    if (role == ROLE_A) {
-                        int sender = msg.sender_id;
-                        pending_req[sender - MAX_ARTISTS] = TRUE;
-                    }
-                    break;
-                }
-                case REQ_G:
-                    if (role == ROLE_G) {
-                        request_from_a = msg.sender_id;
-                    }
-                    break;
-                case ACK_A:
-                    if (role == ROLE_A) {
-                        int sender = msg.sender_id;
-                        pending_req[sender - MAX_ARTISTS] = FALSE;
-                        for (int g = 0; g < MAX_ENGINEERS; g++) {
-                            if (g == sender - MAX_ARTISTS) {
-                                priority[g] = 0;
-                            } else {
-                                priority[g] += 1;
-                            }
-                        }
-                        paired = sender;
-                    }
-                    break;
-                case RELEASE_SLOT:
-                    // Handle release
-                    break;
-                default:
-                    printf("[Rank %d] Unknown message type: %d\n", rank, msg.type);
-                    break;
-            }
-        } else {
+        if (count == 0) {
             slot_request req;
             MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
             update_lamport(req.clock);
@@ -237,6 +195,50 @@ void *comm_thread_func(void *ptr) {
             if (role == ROLE_A) {
                 pending_req[req.g_pair] = FALSE;
             }
+
+            continue;
+        }
+
+        message msg;
+        MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
+        update_lamport(msg.clock);
+
+        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
+                rank, get_lamport(), msg.sender_id, msg.type);
+
+        switch (msg.type) {
+            case REQ_A: {
+                if (role == ROLE_A) {
+                    int sender = msg.sender_id;
+                    pending_req[sender - MAX_ARTISTS] = TRUE;
+                }
+                break;
+            }
+            case REQ_G:
+                if (role == ROLE_G) {
+                    request_from_a = msg.sender_id;
+                }
+                break;
+            case ACK_A:
+                if (role == ROLE_A) {
+                    int sender = msg.sender_id;
+                    pending_req[sender - MAX_ARTISTS] = FALSE;
+                    for (int g = 0; g < MAX_ENGINEERS; g++) {
+                        if (g == sender - MAX_ARTISTS) {
+                            priority[g] = 0;
+                        } else {
+                            priority[g] += 1;
+                        }
+                    }
+                    paired = sender;
+                }
+                break;
+            case RELEASE_SLOT:
+                // Handle release
+                break;
+            default:
+                printf("[Rank %d] Unknown message type: %d\n", rank, msg.type);
+                break;
         }
     }
     return NULL;
