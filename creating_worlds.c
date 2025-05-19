@@ -35,6 +35,13 @@ char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
+/* komunikatory grupowe */
+
+MPI_Comm artist_comm = MPI_COMM_NULL;
+MPI_Comm engineer_comm = MPI_COMM_NULL;
+
+/* typy wiadomości */
+
 MPI_Datatype MPI_MESSAGE_T;
 MPI_Datatype MPI_SLOT_REQUEST_T;
 
@@ -109,6 +116,52 @@ void create_message_types() {
     MPI_Type_commit(&MPI_SLOT_REQUEST_T);
 }
 
+void create_role_comms(MPI_Comm world_comm, int rank, int size) {
+    int artist_ranks[MAX_ARTISTS];
+    int engineer_ranks[MAX_ENGINEERS];
+    int artist_count = 0, engineer_count = 0;
+
+    for (int i = 0; i < size; i++) {
+        if (i < MAX_ARTISTS)
+            artist_ranks[artist_count++] = i;
+        else
+            engineer_ranks[engineer_count++] = i;
+    }
+
+    MPI_Group world_group;
+    MPI_Comm_group(world_comm, &world_group);
+
+    MPI_Group artist_group, engineer_group;
+    MPI_Group_incl(world_group, artist_count, artist_ranks, &artist_group);
+    MPI_Group_incl(world_group, engineer_count, engineer_ranks, &engineer_group);
+
+    if (rank < MAX_ARTISTS)
+        MPI_Comm_create(world_comm, artist_group, &artist_comm);
+    else
+        MPI_Comm_create(world_comm, engineer_group, &engineer_comm);
+}
+
+void send_message_to_artists(message *msg, int tag) {
+    int i;
+    for (i = 0; i < MAX_ARTISTS; i++) {
+        if (i != msg->sender_id) { // nie wysyłaj do siebie
+            MPI_Send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+        }
+    }
+}
+
+void send_message_to_engineers(message *msg, int tag) {
+    for (int i = MAX_ARTISTS; i < MAX_ARTISTS + MAX_ENGINEERS; i++) {
+        if (i != msg->sender_id) {
+            MPI_Send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+        }
+    }
+}
+
+void send_message_to_process(message *msg, int dest, int tag) {
+    MPI_Send(msg, 1, MPI_MESSAGE_T, dest, tag, MPI_COMM_WORLD);
+}
+
 
 void *startFunc(void *ptr)
 {
@@ -169,7 +222,7 @@ int main(int argc, char **argv)
   //pthread_mutex_unlock(&mut);
 
 
-    int size,rank;
+    int size,   ;
     char end = FALSE;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -179,7 +232,7 @@ int main(int argc, char **argv)
     int data;     
     message pakiet;
 
-    if (rank==0) {
+    if   {  
         /* Usuń kod, jest tylko po to, by przypomnieć działanie MPI_Send
            oraz, by program przykładowy się zakończył */
         int i;
