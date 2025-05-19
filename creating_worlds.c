@@ -59,13 +59,12 @@ typedef struct {
 } slot_request;
 
 int role;
-int paired;
+int paired = -1;
 int pending_req[MAX_ENGINEERS];
 int request_from_a;
 int priority[MAX_ENGINEERS];
 slot_request slot_requests[MAX_ARTISTS];
 int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od danego artysty
-
 
 /* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
 void increment_lamport() {
@@ -179,6 +178,89 @@ void send_message_to_process(message *msg, int dest, int tag) {
     lamport_send(msg, 1, MPI_MESSAGE_T, dest, tag, MPI_COMM_WORLD);
 }
 
+// ARTIST THREAD 
+void *artist_thread_func(void *ptr) {
+    message msg;
+    slot_request req;
+    while (!end) {
+        // get max value from priority array
+        int max_priority = -1;
+        int highest_priority_index = -1;
+        for (int i = 0; i < MAX_ENGINEERS; i++) {
+            if (priority[i] > max_priority) {
+                max_priority = priority[i];
+                highest_priority_index = i;
+            }
+        }
+        // find the first engineer with max priority
+        int engineer_id = -1;
+        if (highest_priority_index != -1) {
+            if (pending_req[highest_priority_index] == TRUE) {
+                engineer_id = highest_priority_index + MAX_ARTISTS;
+                msg.type = REQ_G;
+                msg.sender_id = rank;
+                msg.clock = get_lamport();
+                send_message_to_process(&msg, engineer_id, REQ_G);
+
+                // co jezeli w tym czasie g znajdzie innego a to ...
+                // wychodzimy z petli kiedy dostaniemy info ze engineer id wzial kogos innego
+                
+                while (pending_req[highest_priority_index] == TRUE){
+                    if (paired == -1) {
+                        continue;
+                    }
+                    req.sender_id = rank;
+                    req.clock = get_lamport();
+                    req.g_pair = paired;
+                    req.num_slots = 3; // EXAMPLE: NEED TO IMPLEMENT RANDOM od 1 do max slots
+                    send_message_to_engineers(&req, REQ_SLOT);
+
+                    printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to engineer %d (num of slots: %d, paired with g nr: %d)\n",
+                        rank, get_lamport(), paired, req.num_slots, req.g_pair);
+
+                    //asking for slots
+                    // waiting for ACK_SLOT
+                    // if ACK_SLOT received
+
+                    _sleep(1000); // simulate working
+
+                    msg.type = RELEASE_SLOT;
+                    msg.sender_id = rank;
+                    msg.clock = get_lamport();
+                    send_message_to_artists(&msg, paired, RELEASE_SLOT);
+                    paired = -1; // reset paired
+                    _sleep(1000); // simulate taking a break
+                
+                }
+            } // else mniejsze priorytety, sortujemy priorytety wg wartosci
+        }
+    }
+    return NULL;
+}
+
+// ENGINEER THREAD 
+void *engineer_thread_func(void *ptr) {
+    message msg;
+    while (!end) {
+        msg.type = REQ_A;
+        msg.sender_id = rank;
+        msg.clock = get_lamport();
+        send_message_to_artists(&msg, REQ_A);
+
+        if (request_from_a != -1) {
+            msg.type = ACK_A;
+            msg.sender_id = rank;
+            msg.clock = get_lamport();
+            send_message_to_process(&msg, request_from_a, ACK_A);
+            request_from_a = -1;
+            
+            _sleep(2000); // simulate working
+        }
+    }
+    return NULL;
+}
+
+// COMMUNICATION THREAD HANDLING MESSAGES
 void *comm_thread_func(void *ptr) {
     MPI_Status status;
 
@@ -187,7 +269,7 @@ void *comm_thread_func(void *ptr) {
 
         int count;
         MPI_Get_count(&status, MPI_MESSAGE_T, &count);
-        if (count == 0) {
+        if (count != 1) {
             slot_request req;
             MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
             update_lamport(req.clock);
