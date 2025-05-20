@@ -35,6 +35,8 @@ char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
 
+volatile int end = 0;
+
 /* komunikatory grupowe */
 
 MPI_Comm artist_comm = MPI_COMM_NULL;
@@ -65,6 +67,7 @@ int request_from_a;
 int priority[MAX_ENGINEERS];
 slot_request slot_requests[MAX_ARTISTS];
 int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od danego artysty
+int ack_slot_received_from_artists[MAX_ARTISTS];
 
 /* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
 void increment_lamport() {
@@ -234,6 +237,35 @@ void *artist_thread_func(void *ptr) {
                 }
             } // else mniejsze priorytety, sortujemy priorytety wg wartosci
         }
+
+
+        //----------------------------------------
+        // SLOT REQUEST LOGIC
+        //-----------------------------------------
+
+        // for (int i = 0; i < MAX_ARTISTS; i++) {
+        //     if (i != rank) {
+        //         ack_slot_received_from_artists[i] = FALSE;
+        //     }
+        // }
+
+        // send_message_to_artists(&req, REQ_SLOT);
+        // printf("[Rank %d | Clock %d] Sent SLOT_REQUEST to all other artists\n", rank, get_lamport());
+
+        // // wait for ACK_REQ_SLOT from all other artists
+        // while (1) {
+        //     int all_received = TRUE;
+        //     for (int i = 0; i < MAX_ARTISTS; i++) {
+        //         if (i != rank && ack_slot_received_from_artists[i] == FALSE) {
+        //             all_received = FALSE;
+        //             break;
+        //         }
+        //     }
+        //     if (all_received) break;
+        //     _sleep(100);
+        // }
+        // printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
+
     }
     return NULL;
 }
@@ -267,9 +299,8 @@ void *comm_thread_func(void *ptr) {
     while (!end) {
         MPI_Probe(MPI_ANY_SOURCE, MPI_ANY_TAG, MPI_COMM_WORLD, &status);
 
-        int count;
-        MPI_Get_count(&status, MPI_MESSAGE_T, &count);
-        if (count != 1) {
+        if (status.MPI_TAG == REQ_SLOT) {
+            // Handle receiving a slot request
             slot_request req;
             MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
             update_lamport(req.clock);
@@ -279,15 +310,26 @@ void *comm_thread_func(void *ptr) {
 
             pending_req[req.g_pair] = FALSE;
 
-            if (role == ROLE_A) {
-                int idx = req.sender_id;
-                if (idx >= 0 && idx < MAX_ARTISTS) {
-                    slot_requests[idx] = req;
-                    has_slot_request[idx] = TRUE;
-                } else {
-                    printf("[Rank %d] Invalid sender_id in SLOT_REQUEST: %d\n", rank, req.sender_id);
-                }
+            int idx = req.sender_id;
+            if (idx >= 0 && idx < MAX_ARTISTS) {
+                slot_requests[idx] = req;
+                has_slot_request[idx] = TRUE;
+            } else {
+                printf("[Rank %d] Invalid sender_id in SLOT_REQUEST: %d\n", rank, req.sender_id);
             }
+
+            slot_requests[idx] = req;
+            has_slot_request[idx] = TRUE;
+
+            // Send ACK_REQ_SLOT to the sender
+            message ack;
+            ack.type = ACK_REQ_SLOT;
+            ack.sender_id = rank;
+            ack.clock = get_lamport();
+            send_message_to_process(&ack, req.sender_id, ACK_REQ_SLOT);
+
+            printf("[Rank %d | Clock %d] Sent ACK_REQ_SLOT to artist %d\n", 
+               rank, get_lamport(), req.sender_id);
             
             continue;
         }
@@ -326,7 +368,18 @@ void *comm_thread_func(void *ptr) {
                     paired = sender;
                 }
                 break;
+            case ACK_REQ_SLOT:
+                if (role == ROLE_A) {
+                    int sender = msg.sender_id;
+                    if (sender >= 0 && sender < MAX_ARTISTS) {
+                        ack_slot_received_from_artists[sender] = TRUE;
+                        printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", 
+                            rank, get_lamport(), sender);
+                    }
+                }
+                break;
             case RELEASE_SLOT:
+                int sender = msg.sender_id;
                 if (sender >= 0 && sender < MAX_ARTISTS) {
                     has_slot_request[sender] = FALSE; // Clear request tracking
 
@@ -387,11 +440,9 @@ int main(int argc, char **argv) {
     create_message_types();
     create_role_comms(MPI_COMM_WORLD, rank, size);
 
-    pthread_t comm_thread;
-    pthread_create(&comm_thread, NULL, comm_thread_func, NULL);
-
     for (int i = 0; i < MAX_ARTISTS; i++) {
         has_slot_request[i] = FALSE;
+        ack_slot_received_from_artists[i] = FALSE;
     }
 
     // Start komunikacji i logiki roli
