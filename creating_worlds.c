@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <unistd.h>
 /* wątki */
 #include <pthread.h>
 /* sem_init sem_destroy sem_post sem_wait */
@@ -68,6 +69,13 @@ int priority[MAX_ENGINEERS];
 slot_request slot_requests[MAX_ARTISTS];
 int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od danego artysty
 int ack_slot_received_from_artists[MAX_ARTISTS];
+
+/* Funkcja do losowego usypiania wątków */
+void random_sleep(int min_ms, int max_ms) {
+    int range = max_ms - min_ms + 1;
+    int sleep_ms = min_ms + rand() % range;
+    usleep(sleep_ms * 1000); // usleep przyjmuje mikrosekundy
+}
 
 /* Zwiększa zegar Lamporta o 1 (przed wysłaniem wiadomości) */
 void increment_lamport() {
@@ -225,14 +233,14 @@ void *artist_thread_func(void *ptr) {
                     // waiting for ACK_SLOT
                     // if ACK_SLOT received
 
-                    _sleep(1000); // simulate working
+                    random_sleep(1000); // simulate working
 
                     msg.type = RELEASE_SLOT;
                     msg.sender_id = rank;
                     msg.clock = get_lamport();
                     send_message_to_artists(&msg, paired, RELEASE_SLOT);
                     paired = -1; // reset paired
-                    _sleep(1000); // simulate taking a break
+                    random_sleep(1000); // simulate taking a break
                 
                 }
             } // else mniejsze priorytety, sortujemy priorytety wg wartosci
@@ -262,7 +270,7 @@ void *artist_thread_func(void *ptr) {
         //         }
         //     }
         //     if (all_received) break;
-        //     _sleep(100);
+        //     random_sleep(100);
         // }
         // printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
 
@@ -286,7 +294,7 @@ void *engineer_thread_func(void *ptr) {
             send_message_to_process(&msg, request_from_a, ACK_A);
             request_from_a = -1;
             
-            _sleep(2000); // simulate working
+            random_sleep(2000); // simulate working
         }
     }
     return NULL;
@@ -401,6 +409,8 @@ void *comm_thread_func(void *ptr) {
 
 int main(int argc, char **argv) {
     printf("poczatek\n");
+
+    srand(0);
 
     int provided;
     MPI_Init_thread(&argc, &argv,MPI_THREAD_MULTIPLE, &provided);
