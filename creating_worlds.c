@@ -235,14 +235,14 @@ void *artist_thread_func(void *ptr) {
                     // waiting for ACK_SLOT
                     // if ACK_SLOT received
 
-                    random_sleep(); // simulate working
+                    random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
 
                     msg.type = RELEASE_SLOT;
                     msg.sender_id = rank;
                     msg.clock = get_lamport();
                     send_message_to_artists(&msg, RELEASE_SLOT);
                     paired = -1; // reset paired
-                    random_sleep(); // simulate taking a break
+                    random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
                 
                 }
             } // else mniejsze priorytety, sortujemy priorytety wg wartosci
@@ -272,7 +272,7 @@ void *artist_thread_func(void *ptr) {
         //         }
         //     }
         //     if (all_received) break;
-        //     random_sleep();
+        //     random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP);
         // }
         // printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
 
@@ -302,7 +302,7 @@ void *engineer_thread_func(void *ptr) {
             send_message_to_process(&msg, request_from_a, ACK_A);
             request_from_a = -1;
             
-            random_sleep(2000); // simulate working
+            random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
             waiting = FALSE;
         }
     }
