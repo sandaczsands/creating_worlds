@@ -272,8 +272,38 @@ void *artist_thread_func(void *ptr) {
             if (all_received) break;
         }
         printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
-        
-        // check if enough slots are available
+
+        // --------------------------------
+        // Wait for enough slots to be available
+        // --------------------------------
+
+        int can_use_slots = FALSE;
+
+        while (!can_use_slots) {
+            int total_occupied_slots = 0;
+
+            for (int i = 0; i < MAX_ARTISTS; i++) {
+                if (i == rank) continue;
+                if (!has_slot_request[i]) continue;
+
+                slot_request other_req = slot_requests[i];
+
+                // Higher priority = lower Lamport clock, or same clock but lower rank
+                if ((other_req.clock < req.clock) || 
+                    (other_req.clock == req.clock && other_req.sender_id < req.sender_id)) {
+                    total_occupied_slots += other_req.num_slots;
+                }
+            }
+
+            int available_slots = MAX_SLOTS - total_occupied_slots;
+            if (available_slots >= req.num_slots) {
+                can_use_slots = TRUE;
+            }
+        }
+
+        // --------------------------------
+        // DO WORK
+        // --------------------------------
 
         random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
 
