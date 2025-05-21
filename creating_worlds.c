@@ -21,8 +21,9 @@
 #define REQ_A 1
 #define REQ_G 2
 #define ACK_A 3
-#define ACK_REQ_SLOT 4
-#define RELEASE_SLOT 5
+#define REQ_SLOT 4
+#define ACK_REQ_SLOT 5
+#define RELEASE_SLOT 6
 
 #define MAX_SLOTS 10
 #define MAX_ARTISTS 10
