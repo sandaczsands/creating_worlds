@@ -61,6 +61,8 @@ typedef struct {
     int num_slots;
 } slot_request;
 
+
+int rank, size;
 int role;
 int paired = -1; // is the artist paired with an engineer?
 int pending_req[MAX_ENGINEERS]; // pending requests from engineers
@@ -353,13 +355,13 @@ void *comm_thread_func(void *ptr) {
         MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
         update_lamport(msg.clock);
 
-        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
-                rank, get_lamport(), msg.sender_id, msg.type);
-
+        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
+        int sender;
+            
         switch (msg.type) {
             case REQ_A: {
                 if (role == ROLE_A) {
-                    int sender = msg.sender_id;
+                    sender = msg.sender_id;
                     pending_req[sender - MAX_ARTISTS] = TRUE;
                 }
                 break;
@@ -443,7 +445,6 @@ int main(int argc, char **argv) {
         default: printf("Nikt nic nie wie\n");
     }
 
-    int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
