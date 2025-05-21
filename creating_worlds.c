@@ -66,7 +66,7 @@ int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od daneg
 int ack_slot_received_from_artists[MAX_ARTISTS];
 
 /* Funkcja do losowego usypiania wątków */
-void random_sleep(int min_ms, int max_ms) {
+void random_sleep(int min_ms = 100, int max_ms = 500) {
     int range = max_ms - min_ms + 1;
     int sleep_ms = min_ms + rand() % range;
     usleep(sleep_ms * 1000); // usleep przyjmuje mikrosekundy
@@ -228,14 +228,14 @@ void *artist_thread_func(void *ptr) {
                     // waiting for ACK_SLOT
                     // if ACK_SLOT received
 
-                    random_sleep(1000); // simulate working
+                    random_sleep(); // simulate working
 
                     msg.type = RELEASE_SLOT;
                     msg.sender_id = rank;
                     msg.clock = get_lamport();
                     send_message_to_artists(&msg, paired, RELEASE_SLOT);
                     paired = -1; // reset paired
-                    random_sleep(1000); // simulate taking a break
+                    random_sleep(); // simulate taking a break
                 
                 }
             } // else mniejsze priorytety, sortujemy priorytety wg wartosci
@@ -265,7 +265,7 @@ void *artist_thread_func(void *ptr) {
         //         }
         //     }
         //     if (all_received) break;
-        //     random_sleep(100);
+        //     random_sleep();
         // }
         // printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
 
