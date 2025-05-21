@@ -30,7 +30,7 @@
 #define RELEASE_SLOT 6
 
 #define MAX_SLOTS 10
-#define MAX_ARTISTS 10
+#define MAX_ARTISTS 7
 #define MAX_ENGINEERS 10
 
 #define ROLE_A 0 
@@ -257,8 +257,8 @@ void *artist_thread_func(void *ptr) {
         req.num_slots = slots;
         send_message_to_artists(&req, REQ_SLOT);
 
-        printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to artists %d (num of slots: %d, paired with g nr: %d)\n",
-            rank, get_lamport(), paired, req.num_slots, req.g_pair);
+        printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to artists (num of slots: %d, paired with g nr: %d)\n",
+            rank, get_lamport(), req.num_slots, req.g_pair);
 
         // wait for ACK_REQ_SLOT from all other artists
         while (1) {
@@ -312,7 +312,8 @@ void *artist_thread_func(void *ptr) {
         msg.clock = get_lamport();
         send_message_to_artists(&msg, RELEASE_SLOT);
         paired = -1; // reset paired
-
+        
+        printf("[Rank %d | Clock %d] Released slot and taking a break\n", rank, get_lamport());
         random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
     }
     
@@ -357,8 +358,7 @@ void *comm_thread_func(void *ptr) {
             MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
             update_lamport(req.clock);
 
-            printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n",
-                   rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
+            //printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n", rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
 
             pending_req[req.g_pair - MAX_ARTISTS] = FALSE;
 
@@ -390,7 +390,7 @@ void *comm_thread_func(void *ptr) {
         MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
         update_lamport(msg.clock);
 
-        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
+        //printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
         int sender;
             
         switch (msg.type) {
@@ -403,7 +403,9 @@ void *comm_thread_func(void *ptr) {
             }
             case REQ_G:
                 if (role == ROLE_G) {
-                    request_from_a = msg.sender_id;
+                    if (request_from_a == -1) {
+                        request_from_a = msg.sender_id;
+                    }
                 }
                 break;
             case ACK_A:
@@ -425,8 +427,7 @@ void *comm_thread_func(void *ptr) {
                     sender = msg.sender_id;
                     if (sender >= 0 && sender < MAX_ARTISTS) {
                         ack_slot_received_from_artists[sender] = TRUE;
-                        printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", 
-                            rank, get_lamport(), sender);
+                        //printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", rank, get_lamport(), sender);
                     }
                 }
                 break;
