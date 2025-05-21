@@ -373,7 +373,9 @@ void *comm_thread_func(void *ptr) {
             }
             case REQ_G:
                 if (role == ROLE_G) {
-                    request_from_a = msg.sender_id;
+                    if (request_from_a == -1) {
+                        request_from_a = msg.sender_id;
+                    }
                 }
                 break;
             case ACK_A:
