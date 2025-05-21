@@ -285,35 +285,6 @@ void *artist_thread_func(void *ptr) {
 
         random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
     }
-
-
-        //----------------------------------------
-        // SLOT REQUEST LOGIC
-        //-----------------------------------------
-
-        for (int i = 0; i < MAX_ARTISTS; i++) {
-            if (i != rank) {
-                ack_slot_received_from_artists[i] = FALSE;
-            }
-        }
-
-        send_message_to_artists(&req, REQ_SLOT);
-        printf("[Rank %d | Clock %d] Sent SLOT_REQUEST to all other artists\n", rank, get_lamport());
-
-        // wait for ACK_REQ_SLOT from all other artists
-        while (1) {
-            int all_received = TRUE;
-            for (int i = 0; i < MAX_ARTISTS; i++) {
-                if (i != rank && ack_slot_received_from_artists[i] == FALSE) {
-                    all_received = FALSE;
-                    break;
-                }
-            }
-            if (all_received) break;
-            random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP);
-        }
-        printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
-
     
     return NULL;
 }
