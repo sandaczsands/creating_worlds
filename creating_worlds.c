@@ -291,28 +291,24 @@ void *artist_thread_func(void *ptr) {
 // ENGINEER THREAD 
 void *engineer_thread_func(void *ptr) {
     message msg;
-    int waiting;
 
     while (!end) {
         msg.type = REQ_A;
         msg.sender_id = rank;
         msg.clock = get_lamport();
         send_message_to_artists(&msg, REQ_A);
-        waiting = TRUE;
 
-        while (waiting) {
-            if(request_from_a == -1){
-                continue;
-            }
-            msg.type = ACK_A;
-            msg.sender_id = rank;
-            msg.clock = get_lamport();
-            send_message_to_process(&msg, request_from_a, ACK_A);
-            request_from_a = -1;
-            
-            random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
-            waiting = FALSE;
+        while (request_from_a == -1) {
+            // wait for request from artist
         }
+
+        msg.type = ACK_A;
+        msg.sender_id = rank;
+        msg.clock = get_lamport();
+        send_message_to_process(&msg, request_from_a, ACK_A);
+        request_from_a = -1;
+        
+        random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
     }
     return NULL;
 }
