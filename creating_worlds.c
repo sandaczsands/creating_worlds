@@ -17,6 +17,10 @@
 #define DEFAULT_MIN_SLEEP 100
 #define DEFAULT_MAX_SLEEP 500
 
+/* defaultowe wartości dla slot requests */
+#define DEFAULT_MIN_SLOTS 1
+#define DEFAULT_MAX_SLOTS 2
+
 /* typy wiadomości */
 #define REQ_A 1
 #define REQ_G 2
@@ -204,56 +208,82 @@ void *artist_thread_func(void *ptr) {
     message msg;
     slot_request req;
     while (!end) {
-        // get max value from priority array
+        // --------------------------------
+        // Send REQ_G to highest priority engineer
+        // --------------------------------
         int max_priority = -1;
         int highest_priority_index = -1;
         for (int i = 0; i < MAX_ENGINEERS; i++) {
-            if (priority[i] > max_priority) {
+            if (priority[i] > max_priority && pending_req[i] == TRUE) {
                 max_priority = priority[i];
                 highest_priority_index = i;
             }
         }
-        // find the first engineer with max priority
-        int engineer_id = -1;
-        if (highest_priority_index != -1) {
-            if (pending_req[highest_priority_index] == TRUE) {
-                engineer_id = highest_priority_index + MAX_ARTISTS;
-                msg.type = REQ_G;
-                msg.sender_id = rank;
-                msg.clock = get_lamport();
-                send_message_to_process(&msg, engineer_id, REQ_G);
 
-                // co jezeli w tym czasie g znajdzie innego a to ...
-                // wychodzimy z petli kiedy dostaniemy info ze engineer id wzial kogos innego
-                while (pending_req[highest_priority_index] == TRUE) {
-                    // wait for ack from engineer or info that he is paired with someone else
-                }
+        if (highest_priority_index == -1) continue;
+        
+        int engineer_id = highest_priority_index + MAX_ARTISTS;
+        msg.type = REQ_G;
+        msg.sender_id = rank;
+        msg.clock = get_lamport();
+        send_message_to_process(&msg, engineer_id, REQ_G);
 
-                if (paired == -1) { continue;}
-                req.sender_id = rank;
-                req.clock = get_lamport();
-                req.g_pair = paired;
-                req.num_slots = 3; // EXAMPLE: NEED TO IMPLEMENT RANDOM od 1 do max slots
-                send_message_to_artists(&req, REQ_SLOT);
+        // --------------------------------
+        // wait for ACK_A from engineer
+        // --------------------------------
+        
+        while (pending_req[highest_priority_index] == TRUE) {
+            // wait for ack from engineer or info that he is paired with someone else
+        }
+    
+        if (paired == -1) continue;
 
-                printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to engineer %d (num of slots: %d, paired with g nr: %d)\n",
-                    rank, get_lamport(), paired, req.num_slots, req.g_pair);
+        // --------------------------------
+        // Send REQ_SLOT to artists
+        // --------------------------------
 
-                //asking for slots
-                // waiting for ACK_SLOT
-                // if ACK_SLOT received
-
-                random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
-
-                msg.type = RELEASE_SLOT;
-                msg.sender_id = rank;
-                msg.clock = get_lamport();
-                send_message_to_artists(&msg, RELEASE_SLOT);
-                paired = -1; // reset paired
-                random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
-
+        for (int i = 0; i < MAX_ARTISTS; i++) {
+            if (i != rank) {
+                ack_slot_received_from_artists[i] = FALSE;
             }
-        } // else mniejsze priorytety, sortujemy priorytety wg wartosci
+        }
+
+        req.sender_id = rank;
+        req.clock = get_lamport();
+        req.g_pair = paired;
+
+        int range = DEFAULT_MAX_SLOTS - DEFAULT_MIN_SLOTS + 1;
+        int slots = DEFAULT_MIN_SLOTS + rand() % range;
+        req.num_slots = slots;
+        send_message_to_artists(&req, REQ_SLOT);
+
+        printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to artists %d (num of slots: %d, paired with g nr: %d)\n",
+            rank, get_lamport(), paired, req.num_slots, req.g_pair);
+
+        // wait for ACK_REQ_SLOT from all other artists
+        while (1) {
+            int all_received = TRUE;
+            for (int i = 0; i < MAX_ARTISTS; i++) {
+                if (i != rank && ack_slot_received_from_artists[i] == FALSE) {
+                    all_received = FALSE;
+                    break;
+                }
+            }
+            if (all_received) break;
+        }
+        printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
+        
+        // check if enough slots are available
+
+        random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate working
+
+        msg.type = RELEASE_SLOT;
+        msg.sender_id = rank;
+        msg.clock = get_lamport();
+        send_message_to_artists(&msg, RELEASE_SLOT);
+        paired = -1; // reset paired
+
+        random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
     }
 
 
@@ -261,28 +291,28 @@ void *artist_thread_func(void *ptr) {
         // SLOT REQUEST LOGIC
         //-----------------------------------------
 
-        // for (int i = 0; i < MAX_ARTISTS; i++) {
-        //     if (i != rank) {
-        //         ack_slot_received_from_artists[i] = FALSE;
-        //     }
-        // }
+        for (int i = 0; i < MAX_ARTISTS; i++) {
+            if (i != rank) {
+                ack_slot_received_from_artists[i] = FALSE;
+            }
+        }
 
-        // send_message_to_artists(&req, REQ_SLOT);
-        // printf("[Rank %d | Clock %d] Sent SLOT_REQUEST to all other artists\n", rank, get_lamport());
+        send_message_to_artists(&req, REQ_SLOT);
+        printf("[Rank %d | Clock %d] Sent SLOT_REQUEST to all other artists\n", rank, get_lamport());
 
-        // // wait for ACK_REQ_SLOT from all other artists
-        // while (1) {
-        //     int all_received = TRUE;
-        //     for (int i = 0; i < MAX_ARTISTS; i++) {
-        //         if (i != rank && ack_slot_received_from_artists[i] == FALSE) {
-        //             all_received = FALSE;
-        //             break;
-        //         }
-        //     }
-        //     if (all_received) break;
-        //     random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP);
-        // }
-        // printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
+        // wait for ACK_REQ_SLOT from all other artists
+        while (1) {
+            int all_received = TRUE;
+            for (int i = 0; i < MAX_ARTISTS; i++) {
+                if (i != rank && ack_slot_received_from_artists[i] == FALSE) {
+                    all_received = FALSE;
+                    break;
+                }
+            }
+            if (all_received) break;
+            random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP);
+        }
+        printf("[Rank %d | Clock %d] All ACK_REQ_SLOT received from other artists\n", rank, get_lamport());
 
     
     return NULL;
