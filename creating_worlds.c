@@ -168,11 +168,19 @@ void create_role_comms(MPI_Comm world_comm, int rank, int size) {
         MPI_Comm_create(world_comm, engineer_group, &engineer_comm);
 }
 
-void send_message_to_artists(message *msg, int tag) {
+void send_message_to_artists(void *msg, int tag) {
     increment_lamport();
-    for (int i = 0; i < MAX_ARTISTS; i++) {
-        if (i != msg->sender_id) { // nie wysyłaj do siebie
-            lamport_send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+    if (tag == REQ_SLOT) {
+        for (int i = 0; i < MAX_ARTISTS; i++) {
+            if (i != ((slot_request*)msg)->sender_id) {
+                lamport_send(msg, 1, MPI_SLOT_REQUEST_T, i, tag, MPI_COMM_WORLD);
+            }
+        }
+    } else {
+        for (int i = 0; i < MAX_ARTISTS; i++) {
+            if (i != ((message*)msg)->sender_id) { // nie wysyłaj do siebie
+                lamport_send(msg, 1, MPI_MESSAGE_T, i, tag, MPI_COMM_WORLD);
+            }
         }
     }
 }
