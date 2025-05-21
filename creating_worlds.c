@@ -327,8 +327,7 @@ void *comm_thread_func(void *ptr) {
             MPI_Recv(&req, 1, MPI_SLOT_REQUEST_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
             update_lamport(req.clock);
 
-            printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n",
-                   rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
+            //printf("[Rank %d | Clock %d] Received SLOT_REQUEST from %d (needed num of slots: %d, paired with g nr: %d)\n", rank, get_lamport(), req.sender_id, req.num_slots, req.g_pair);
 
             pending_req[req.g_pair - MAX_ARTISTS] = FALSE;
 
@@ -360,7 +359,7 @@ void *comm_thread_func(void *ptr) {
         MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
         update_lamport(msg.clock);
 
-        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
+        //printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
         int sender;
             
         switch (msg.type) {
@@ -395,8 +394,7 @@ void *comm_thread_func(void *ptr) {
                     sender = msg.sender_id;
                     if (sender >= 0 && sender < MAX_ARTISTS) {
                         ack_slot_received_from_artists[sender] = TRUE;
-                        printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", 
-                            rank, get_lamport(), sender);
+                        //printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", rank, get_lamport(), sender);
                     }
                 }
                 break;
