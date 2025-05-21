@@ -240,7 +240,7 @@ void *artist_thread_func(void *ptr) {
                     msg.type = RELEASE_SLOT;
                     msg.sender_id = rank;
                     msg.clock = get_lamport();
-                    send_message_to_artists(&msg, paired, RELEASE_SLOT);
+                    send_message_to_artists(&msg, RELEASE_SLOT);
                     paired = -1; // reset paired
                     random_sleep(); // simulate taking a break
                 
@@ -373,7 +373,7 @@ void *comm_thread_func(void *ptr) {
                 break;
             case ACK_A:
                 if (role == ROLE_A) {
-                    int sender = msg.sender_id;
+                    sender = msg.sender_id;
                     pending_req[sender - MAX_ARTISTS] = FALSE;
                     for (int g = 0; g < MAX_ENGINEERS; g++) {
                         if (g == sender - MAX_ARTISTS) {
@@ -387,7 +387,7 @@ void *comm_thread_func(void *ptr) {
                 break;
             case ACK_REQ_SLOT:
                 if (role == ROLE_A) {
-                    int sender = msg.sender_id;
+                    sender = msg.sender_id;
                     if (sender >= 0 && sender < MAX_ARTISTS) {
                         ack_slot_received_from_artists[sender] = TRUE;
                         printf("[Rank %d | Clock %d] Received ACK_REQ_SLOT from artist %d\n", 
@@ -396,7 +396,7 @@ void *comm_thread_func(void *ptr) {
                 }
                 break;
             case RELEASE_SLOT:
-                int sender = msg.sender_id;
+                sender = msg.sender_id;
                 if (sender >= 0 && sender < MAX_ARTISTS) {
                     has_slot_request[sender] = FALSE; // Clear request tracking
 
