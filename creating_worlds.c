@@ -355,13 +355,13 @@ void *comm_thread_func(void *ptr) {
         MPI_Recv(&msg, 1, MPI_MESSAGE_T, status.MPI_SOURCE, status.MPI_TAG, MPI_COMM_WORLD, &status);
         update_lamport(msg.clock);
 
-        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n",
-                rank, get_lamport(), msg.sender_id, msg.type);
-
+        printf("[Rank %d | Clock %d] Received message from %d (type %d)\n", rank, get_lamport(), msg.sender_id, msg.type);
+        int sender;
+            
         switch (msg.type) {
             case REQ_A: {
                 if (role == ROLE_A) {
-                    int sender = msg.sender_id;
+                    sender = msg.sender_id;
                     pending_req[sender - MAX_ARTISTS] = TRUE;
                 }
                 break;
