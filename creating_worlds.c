@@ -30,7 +30,7 @@
 #define RELEASE_SLOT 6
 
 #define MAX_SLOTS 10
-#define MAX_ARTISTS 10
+#define MAX_ARTISTS 7
 #define MAX_ENGINEERS 10
 
 #define ROLE_A 0 
@@ -257,8 +257,8 @@ void *artist_thread_func(void *ptr) {
         req.num_slots = slots;
         send_message_to_artists(&req, REQ_SLOT);
 
-        printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to artists %d (num of slots: %d, paired with g nr: %d)\n",
-            rank, get_lamport(), paired, req.num_slots, req.g_pair);
+        printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to artists (num of slots: %d, paired with g nr: %d)\n",
+            rank, get_lamport(), req.num_slots, req.g_pair);
 
         // wait for ACK_REQ_SLOT from all other artists
         while (1) {
@@ -282,7 +282,8 @@ void *artist_thread_func(void *ptr) {
         msg.clock = get_lamport();
         send_message_to_artists(&msg, RELEASE_SLOT);
         paired = -1; // reset paired
-
+        
+        printf("[Rank %d | Clock %d] Released slot and taking a break\n", rank, get_lamport());
         random_sleep(DEFAULT_MIN_SLEEP, DEFAULT_MAX_SLEEP); // simulate taking a break
     }
     
