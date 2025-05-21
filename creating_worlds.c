@@ -13,6 +13,10 @@
 #define TRUE 1
 #define FALSE 0
 
+/* defaultowe wartości dla random_sleep */
+#define DEFAULT_MIN_SLEEP 100
+#define DEFAULT_MAX_SLEEP 500
+
 /* typy wiadomości */
 //#define FINISH 1
 //#define APP_MSG 2
@@ -71,7 +75,7 @@ int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od daneg
 int ack_slot_received_from_artists[MAX_ARTISTS];
 
 /* Funkcja do losowego usypiania wątków */
-void random_sleep(int min_ms = 100, int max_ms = 500) {
+void random_sleep(int min_ms, int max_ms) {
     int range = max_ms - min_ms + 1;
     int sleep_ms = min_ms + rand() % range;
     usleep(sleep_ms * 1000); // usleep przyjmuje mikrosekundy
