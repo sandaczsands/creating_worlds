@@ -226,7 +226,7 @@ void *artist_thread_func(void *ptr) {
                     req.clock = get_lamport();
                     req.g_pair = paired;
                     req.num_slots = 3; // EXAMPLE: NEED TO IMPLEMENT RANDOM od 1 do max slots
-                    send_message_to_engineers(&req, REQ_SLOT);
+                    send_message_to_artists(&req, REQ_SLOT);
 
                     printf("[Rank %d | Clock %d] Sending SLOT_REQUEST to engineer %d (num of slots: %d, paired with g nr: %d)\n",
                         rank, get_lamport(), paired, req.num_slots, req.g_pair);
