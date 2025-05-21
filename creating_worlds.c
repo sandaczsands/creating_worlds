@@ -14,8 +14,6 @@
 #define FALSE 0
 
 /* typy wiadomości */
-//#define FINISH 1
-//#define APP_MSG 2
 #define REQ_A 1
 #define REQ_G 2
 #define ACK_A 3
@@ -35,16 +33,13 @@ int lamport_clock = 0;
 char passive = FALSE;
 
 pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-
 volatile int end = 0;
 
 /* komunikatory grupowe */
-
 MPI_Comm artist_comm = MPI_COMM_NULL;
 MPI_Comm engineer_comm = MPI_COMM_NULL;
 
 /* typy wiadomości */
-
 MPI_Datatype MPI_MESSAGE_T;
 MPI_Datatype MPI_SLOT_REQUEST_T;
 
@@ -62,10 +57,10 @@ typedef struct {
 } slot_request;
 
 int role;
-int paired = -1;
-int pending_req[MAX_ENGINEERS];
-int request_from_a;
-int priority[MAX_ENGINEERS];
+int paired = -1; // is the artist paired with an engineer?
+int pending_req[MAX_ENGINEERS]; // pending requests from engineers
+int priority[MAX_ENGINEERS]; // table of priorities for engineers
+int request_from_a; //pending request from artist to engineer
 slot_request slot_requests[MAX_ARTISTS];
 int has_slot_request[MAX_ARTISTS]; // TRUE jeśli mamy zapisany request od danego artysty
 int ack_slot_received_from_artists[MAX_ARTISTS];
@@ -281,13 +276,19 @@ void *artist_thread_func(void *ptr) {
 // ENGINEER THREAD 
 void *engineer_thread_func(void *ptr) {
     message msg;
+    int waiting;
+
     while (!end) {
         msg.type = REQ_A;
         msg.sender_id = rank;
         msg.clock = get_lamport();
         send_message_to_artists(&msg, REQ_A);
+        waiting = TRUE;
 
-        if (request_from_a != -1) {
+        while (waiting) {
+            if(request_from_a == -1){
+                continue;
+            }
             msg.type = ACK_A;
             msg.sender_id = rank;
             msg.clock = get_lamport();
@@ -295,6 +296,7 @@ void *engineer_thread_func(void *ptr) {
             request_from_a = -1;
             
             random_sleep(2000); // simulate working
+            waiting = FALSE;
         }
     }
     return NULL;
