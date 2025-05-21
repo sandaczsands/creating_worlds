@@ -60,6 +60,8 @@ typedef struct {
     int num_slots;
 } slot_request;
 
+
+int rank, size;
 int role;
 int paired = -1; // is the artist paired with an engineer?
 int pending_req[MAX_ENGINEERS]; // pending requests from engineers
@@ -442,7 +444,6 @@ int main(int argc, char **argv) {
         default: printf("Nikt nic nie wie\n");
     }
 
-    int rank, size;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
